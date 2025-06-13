@@ -62,6 +62,16 @@ export default function ArtFeed({
   const { colors } = useTheme();
   const [viewableItems, setViewableItems] = useState<string[]>([]);
   
+  // CRITICAL FIX: Stable callback reference to prevent FlatList error
+  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
+    setViewableItems(viewableItems.map((item: any) => item.key));
+  }, []);
+  
+  // CRITICAL FIX: Stable viewability config
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50
+  }).current;
+  
   const renderPost = ({ item }: { item: ArtPost }) => {
     return (
       <GlassmorphicCard style={styles.postCard}>
@@ -91,7 +101,11 @@ export default function ArtFeed({
             </View>
           </View>
           
-          <TouchableOpacity style={styles.moreButton}>
+          <TouchableOpacity 
+            style={styles.moreButton}
+            accessibilityRole="button"
+            accessibilityLabel="More options"
+          >
             <MoreHorizontal size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -110,6 +124,8 @@ export default function ArtFeed({
               <TouchableOpacity 
                 style={styles.playButton}
                 onPress={() => onPlayTimelapse(item.id)}
+                accessibilityRole="button"
+                accessibilityLabel="Play timelapse video"
               >
                 <View style={[styles.playButtonInner, { backgroundColor: colors.primary }]}>
                   <Play size={24} color="white" />
@@ -148,6 +164,8 @@ export default function ArtFeed({
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => onLike(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={item.isLiked ? "Unlike post" : "Like post"}
             >
               <Heart 
                 size={24} 
@@ -162,6 +180,8 @@ export default function ArtFeed({
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => onComment(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel="View comments"
             >
               <MessageCircle size={24} color={colors.textSecondary} />
               <MuralText variant="subtitle" style={styles.actionCount}>
@@ -172,6 +192,8 @@ export default function ArtFeed({
             <TouchableOpacity 
               style={styles.actionButton}
               onPress={() => onShare(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel="Share post"
             >
               <Share2 size={24} color={colors.textSecondary} />
               <MuralText variant="subtitle" style={styles.actionCount}>
@@ -180,7 +202,11 @@ export default function ArtFeed({
             </TouchableOpacity>
           </View>
           
-          <TouchableOpacity onPress={() => onBookmark(item.id)}>
+          <TouchableOpacity 
+            onPress={() => onBookmark(item.id)}
+            accessibilityRole="button"
+            accessibilityLabel={item.isBookmarked ? "Remove bookmark" : "Bookmark post"}
+          >
             <Bookmark 
               size={24} 
               color={item.isBookmarked ? colors.warning : colors.textSecondary}
@@ -191,10 +217,6 @@ export default function ArtFeed({
       </GlassmorphicCard>
     );
   };
-  
-  const onViewableItemsChanged = useCallback(({ viewableItems }: any) => {
-    setViewableItems(viewableItems.map((item: any) => item.key));
-  }, []);
 
   return (
     <FlatList
@@ -212,10 +234,17 @@ export default function ArtFeed({
         />
       }
       onViewableItemsChanged={onViewableItemsChanged}
-      viewabilityConfig={{
-        itemVisiblePercentThreshold: 50
-      }}
+      viewabilityConfig={viewabilityConfig}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
+      removeClippedSubviews={true}
+      maxToRenderPerBatch={5}
+      windowSize={10}
+      initialNumToRender={3}
+      getItemLayout={(data, index) => ({
+        length: 400, // Approximate item height
+        offset: 400 * index,
+        index,
+      })}
     />
   );
 }
@@ -277,6 +306,10 @@ const styles = StyleSheet.create({
   },
   moreButton: {
     padding: 8,
+    minWidth: 44, // Accessibility: minimum touch target
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   postContent: {
     paddingHorizontal: 16,
@@ -352,6 +385,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 24,
+    minWidth: 44, // Accessibility: minimum touch target
+    minHeight: 44,
+    justifyContent: 'center',
   },
   actionCount: {
     marginLeft: 6,

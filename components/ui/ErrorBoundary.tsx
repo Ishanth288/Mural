@@ -102,6 +102,8 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
               <TouchableOpacity 
                 style={styles.homeButton}
                 onPress={this.handleGoHome}
+                accessibilityRole="button"
+                accessibilityLabel="Go to home screen"
               >
                 <Home size={20} color="#6366F1" />
                 <Text style={styles.homeButtonText}>Go Home</Text>
@@ -214,6 +216,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     padding: 12,
+    minHeight: 44, // Accessibility: minimum touch target
+    minWidth: 44,
+    justifyContent: 'center',
   },
   homeButtonText: {
     marginLeft: 8,
