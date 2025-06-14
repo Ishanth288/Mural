@@ -163,9 +163,11 @@ export default function OnboardingScreen() {
         
         <View style={styles.buttonContainer}>
           <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
-            <MuralText variant="tagline" style={{ color: colors.textSecondary }}>
-              Skip
-            </MuralText>
+            <View>
+              <MuralText variant="tagline" style={{ color: colors.textSecondary }}>
+                Skip
+              </MuralText>
+            </View>
           </TouchableOpacity>
           
           <MuralButton
