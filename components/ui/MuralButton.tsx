@@ -145,7 +145,6 @@ export default function MuralButton({
     <AccessibilityWrapper
       label={accessibilityLabel || title}
       hint={accessibilityHint}
-      role="button"
       state={{ disabled: disabled || loading }}
     >
       <AnimatedPressable
