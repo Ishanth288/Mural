@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Image
 } from 'react-native';
-import { Heart, MessageCircle, Share2, Bookmark, MoveHorizontal as MoreHorizontal, Play } from 'lucide-react-native';
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Play } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import GlassmorphicCard from '../ui/GlassmorphicCard';
 import MuralText from '../ui/MuralText';

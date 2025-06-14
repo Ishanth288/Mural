@@ -18,7 +18,7 @@ import Animated, {
   useAnimatedReaction
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SprayCan as Spray, Volume2, VolumeX, RotateCcw, Palette, Layers, Settings, Users, Video, Zap } from 'lucide-react-native';
+import { SprayCan as Spray, Volume2, VolumeX, RotateCcw, Palette, Layers, Settings, Users, Video, Zap, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/context/ThemeContext';
 import GlassmorphicCard from '../ui/GlassmorphicCard';
 import MuralText from '../ui/MuralText';
@@ -30,8 +30,8 @@ import MotionTracker from './MotionTracker';
 import WallScanner from './WallScanner';
 import ErrorBoundary, { GraffitiModeError } from '../ui/ErrorBoundary';
 import LoadingState from '../ui/LoadingState';
-import { useConfirmation } from '../ui/ConfirmationDialog';
 import AccessibilityWrapper from '../ui/AccessibilityWrapper';
+import PlatformCompatibilityManager from '@/utils/PlatformCompatibility';
 
 const { width, height } = Dimensions.get('window');
 
@@ -71,267 +71,6 @@ type GraffitiModeProps = {
   onToggleFacing: () => void;
 };
 
-// Web-compatible motion detection
-class WebMotionTracker {
-  private callback: ((data: MotionData) => void) | null = null;
-  private isTracking = false;
-  private lastMotion: MotionData | null = null;
-  
-  start(callback: (data: MotionData) => void) {
-    this.callback = callback;
-    this.isTracking = true;
-    
-    if (Platform.OS === 'web') {
-      this.startWebMotionTracking();
-    } else {
-      this.startNativeMotionTracking();
-    }
-  }
-  
-  stop() {
-    this.isTracking = false;
-    this.callback = null;
-    
-    if (Platform.OS === 'web') {
-      window.removeEventListener('devicemotion', this.handleDeviceMotion);
-      window.removeEventListener('deviceorientation', this.handleDeviceOrientation);
-    }
-  }
-  
-  private startWebMotionTracking() {
-    if (typeof window !== 'undefined') {
-      // Check for motion sensor support
-      if ('DeviceMotionEvent' in window) {
-        window.addEventListener('devicemotion', this.handleDeviceMotion);
-      }
-      
-      if ('DeviceOrientationEvent' in window) {
-        window.addEventListener('deviceorientation', this.handleDeviceOrientation);
-      }
-      
-      // Fallback to mouse/touch movement for desktop
-      this.startMouseMotionTracking();
-    }
-  }
-  
-  private startNativeMotionTracking() {
-    // For native platforms, we'll simulate motion data
-    this.simulateMotionData();
-  }
-  
-  private handleDeviceMotion = (event: DeviceMotionEvent) => {
-    if (!this.isTracking || !this.callback) return;
-    
-    const acceleration = event.acceleration || { x: 0, y: 0, z: 0 };
-    const rotationRate = event.rotationRate || { alpha: 0, beta: 0, gamma: 0 };
-    
-    const motionData: MotionData = {
-      acceleration,
-      rotation: rotationRate,
-      timestamp: Date.now(),
-      pressure: this.calculatePressure(acceleration),
-      distance: this.calculateDistance(acceleration)
-    };
-    
-    this.lastMotion = motionData;
-    this.callback(motionData);
-  };
-  
-  private handleDeviceOrientation = (event: DeviceOrientationEvent) => {
-    if (!this.isTracking || !this.callback) return;
-    
-    const rotation = {
-      alpha: event.alpha || 0,
-      beta: event.beta || 0,
-      gamma: event.gamma || 0
-    };
-    
-    if (this.lastMotion) {
-      this.lastMotion.rotation = rotation;
-      this.callback(this.lastMotion);
-    }
-  };
-  
-  private startMouseMotionTracking() {
-    let lastMousePosition = { x: 0, y: 0 };
-    let lastTimestamp = Date.now();
-    
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!this.isTracking || !this.callback) return;
-      
-      const now = Date.now();
-      const deltaTime = now - lastTimestamp;
-      const deltaX = event.clientX - lastMousePosition.x;
-      const deltaY = event.clientY - lastMousePosition.y;
-      
-      if (deltaTime > 0) {
-        const velocityX = deltaX / deltaTime;
-        const velocityY = deltaY / deltaTime;
-        
-        const motionData: MotionData = {
-          acceleration: { x: velocityX * 10, y: velocityY * 10, z: 0 },
-          rotation: { alpha: 0, beta: 0, gamma: 0 },
-          timestamp: now,
-          pressure: Math.min(1, Math.sqrt(velocityX * velocityX + velocityY * velocityY) / 10),
-          distance: 1
-        };
-        
-        this.callback(motionData);
-      }
-      
-      lastMousePosition = { x: event.clientX, y: event.clientY };
-      lastTimestamp = now;
-    };
-    
-    if (typeof window !== 'undefined') {
-      window.addEventListener('mousemove', handleMouseMove);
-    }
-  }
-  
-  private simulateMotionData() {
-    const interval = setInterval(() => {
-      if (!this.isTracking || !this.callback) {
-        clearInterval(interval);
-        return;
-      }
-      
-      const motionData: MotionData = {
-        acceleration: {
-          x: (Math.random() - 0.5) * 2,
-          y: (Math.random() - 0.5) * 2,
-          z: (Math.random() - 0.5) * 2
-        },
-        rotation: {
-          alpha: Math.random() * 360,
-          beta: Math.random() * 180 - 90,
-          gamma: Math.random() * 180 - 90
-        },
-        timestamp: Date.now(),
-        pressure: Math.random(),
-        distance: 0.5 + Math.random() * 1.5
-      };
-      
-      this.callback(motionData);
-    }, MOTION_UPDATE_INTERVAL);
-  }
-  
-  private calculatePressure(acceleration: { x: number; y: number; z: number }): number {
-    const magnitude = Math.sqrt(
-      acceleration.x * acceleration.x + 
-      acceleration.y * acceleration.y + 
-      acceleration.z * acceleration.z
-    );
-    return Math.min(1, magnitude / 10);
-  }
-  
-  private calculateDistance(acceleration: { x: number; y: number; z: number }): number {
-    const magnitude = Math.sqrt(
-      acceleration.x * acceleration.x + 
-      acceleration.y * acceleration.y + 
-      acceleration.z * acceleration.z
-    );
-    return Math.max(0.1, Math.min(2.0, 1.0 / (magnitude + 0.1)));
-  }
-}
-
-// Web-compatible audio system
-class WebAudioSystem {
-  private audioContext: AudioContext | null = null;
-  private sprayBuffer: AudioBuffer | null = null;
-  private shakeBuffer: AudioBuffer | null = null;
-  private isEnabled = true;
-  
-  async initialize() {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    
-    try {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      await this.loadSounds();
-    } catch (error) {
-      console.warn('Web Audio not supported:', error);
-    }
-  }
-  
-  private async loadSounds() {
-    // Create synthetic spray sound
-    this.sprayBuffer = this.createSpraySound();
-    this.shakeBuffer = this.createShakeSound();
-  }
-  
-  private createSpraySound(): AudioBuffer {
-    if (!this.audioContext) throw new Error('Audio context not initialized');
-    
-    const sampleRate = this.audioContext.sampleRate;
-    const duration = 0.5;
-    const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
-    const data = buffer.getChannelData(0);
-    
-    // Generate white noise for spray sound
-    for (let i = 0; i < data.length; i++) {
-      data[i] = (Math.random() * 2 - 1) * 0.3 * Math.exp(-i / (sampleRate * 0.1));
-    }
-    
-    return buffer;
-  }
-  
-  private createShakeSound(): AudioBuffer {
-    if (!this.audioContext) throw new Error('Audio context not initialized');
-    
-    const sampleRate = this.audioContext.sampleRate;
-    const duration = 0.2;
-    const buffer = this.audioContext.createBuffer(1, sampleRate * duration, sampleRate);
-    const data = buffer.getChannelData(0);
-    
-    // Generate rattle sound
-    for (let i = 0; i < data.length; i++) {
-      const t = i / sampleRate;
-      data[i] = Math.sin(2 * Math.PI * 200 * t) * Math.exp(-t * 10) * 0.5;
-    }
-    
-    return buffer;
-  }
-  
-  playSpraySound() {
-    if (!this.isEnabled || !this.audioContext || !this.sprayBuffer) return;
-    
-    const source = this.audioContext.createBufferSource();
-    source.buffer = this.sprayBuffer;
-    source.connect(this.audioContext.destination);
-    source.start();
-  }
-  
-  playShakeSound() {
-    if (!this.isEnabled || !this.audioContext || !this.shakeBuffer) return;
-    
-    const source = this.audioContext.createBufferSource();
-    source.buffer = this.shakeBuffer;
-    source.connect(this.audioContext.destination);
-    source.start();
-  }
-  
-  setEnabled(enabled: boolean) {
-    this.isEnabled = enabled;
-  }
-}
-
-// Web-compatible haptic feedback
-const triggerHapticFeedback = (intensity: number = 1) => {
-  if (Platform.OS === 'web') {
-    // Use Vibration API if available
-    if ('vibrate' in navigator) {
-      navigator.vibrate(Math.round(intensity * 100));
-    }
-  } else {
-    // Use expo-haptics for native platforms
-    try {
-      const Haptics = require('expo-haptics');
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } catch (error) {
-      console.warn('Haptics not available:', error);
-    }
-  }
-};
-
 export default function GraffitiMode({
   isActive,
   onExit,
@@ -339,7 +78,6 @@ export default function GraffitiMode({
   onToggleFacing
 }: GraffitiModeProps) {
   const { colors } = useTheme();
-  const { confirm, ConfirmationComponent } = useConfirmation();
   
   // State management
   const [isScanning, setIsScanning] = useState(false);
@@ -360,8 +98,7 @@ export default function GraffitiMode({
   const [particles, setParticles] = useState<SprayParticle[]>([]);
   
   // Refs for performance
-  const motionTracker = useRef(new WebMotionTracker());
-  const audioSystem = useRef(new WebAudioSystem());
+  const platformManager = useRef(PlatformCompatibilityManager.getInstance());
   const motionBuffer = useRef<MotionData[]>([]);
   const lastMotionTime = useRef(0);
   const paintAccumulation = useRef(new Map<string, number>());
@@ -380,28 +117,33 @@ export default function GraffitiMode({
     setLoading(true);
     setError(null);
     
-    try {
-      // Initialize audio system
-      audioSystem.current.initialize();
-      
-      // Start motion tracking
-      motionTracker.current.start(handleMotionUpdate);
-      
-      // Start physics loop with optimized performance
-      const physicsInterval = setInterval(updateSprayPhysics, SPRAY_PHYSICS_INTERVAL);
-      
-      setLoading(false);
-      
-      // Cleanup function
-      return () => {
-        motionTracker.current.stop();
-        clearInterval(physicsInterval);
-        cleanupParticles();
-      };
-    } catch (err) {
-      setError('Failed to initialize graffiti mode');
-      setLoading(false);
-    }
+    const initializeGraffitiMode = async () => {
+      try {
+        // Start motion tracking with platform compatibility
+        const motionStarted = await platformManager.current.startMotionTracking(handleMotionUpdate);
+        
+        if (!motionStarted) {
+          console.warn('Motion tracking not available, using fallback');
+        }
+        
+        // Start physics loop with optimized performance
+        const physicsInterval = setInterval(updateSprayPhysics, SPRAY_PHYSICS_INTERVAL);
+        
+        setLoading(false);
+        
+        // Cleanup function
+        return () => {
+          platformManager.current.stopMotionTracking();
+          clearInterval(physicsInterval);
+          cleanupParticles();
+        };
+      } catch (err) {
+        setError('Failed to initialize graffiti mode');
+        setLoading(false);
+      }
+    };
+    
+    initializeGraffitiMode();
   }, [isActive]);
   
   // Optimized motion handling with debouncing
@@ -459,11 +201,11 @@ export default function GraffitiMode({
     
     // Play shake sound
     if (soundEnabled) {
-      audioSystem.current.playShakeSound();
+      platformManager.current.playAudio('/sounds/shake.mp3', { volume: 0.5 });
     }
     
     // Haptic feedback
-    triggerHapticFeedback(0.5);
+    platformManager.current.triggerHapticFeedback('medium');
   };
   
   const activateSpray = () => {
@@ -473,7 +215,7 @@ export default function GraffitiMode({
       
       // Start spray sound
       if (soundEnabled) {
-        audioSystem.current.playSpraySound();
+        platformManager.current.playAudio('/sounds/spray.mp3', { loop: true, volume: 0.3 });
       }
       
       // Generate spray particles with object pooling
@@ -603,34 +345,14 @@ export default function GraffitiMode({
     }, 3000);
   };
   
-  const handleExit = async () => {
-    if (particles.length > 0) {
-      const shouldExit = await confirm({
-        title: 'Exit Graffiti Mode?',
-        message: 'Your current artwork will be lost. Are you sure you want to exit?',
-        type: 'warning',
-        destructive: true
-      });
-      
-      if (!shouldExit) return;
-    }
-    
+  const handleExit = () => {
     cleanupParticles();
     onExit();
   };
   
-  const handleClearCanvas = async () => {
-    const shouldClear = await confirm({
-      title: 'Clear Canvas?',
-      message: 'This will remove all your current artwork. This action cannot be undone.',
-      type: 'warning',
-      destructive: true
-    });
-    
-    if (shouldClear) {
-      setParticles([]);
-      paintAccumulation.current.clear();
-    }
+  const handleClearCanvas = () => {
+    setParticles([]);
+    paintAccumulation.current.clear();
   };
   
   // Gesture handlers
@@ -764,8 +486,9 @@ export default function GraffitiMode({
                   accessibilityRole="button"
                   accessibilityLabel="Exit graffiti mode"
                 >
-                  <MuralText variant="tagline" style={{ color: colors.error }}>
-                    Exit Graffiti Mode
+                  <ArrowLeft size={20} color={colors.text} />
+                  <MuralText variant="tagline" style={styles.exitButtonText}>
+                    Exit
                   </MuralText>
                 </TouchableOpacity>
               </AccessibilityWrapper>
@@ -841,10 +564,7 @@ export default function GraffitiMode({
                   >
                     <TouchableOpacity 
                       style={[styles.toolButton, { backgroundColor: colors.accent }]}
-                      onPress={() => {
-                        setSoundEnabled(!soundEnabled);
-                        audioSystem.current.setEnabled(!soundEnabled);
-                      }}
+                      onPress={() => setSoundEnabled(!soundEnabled)}
                       accessibilityRole="button"
                     >
                       {soundEnabled ? (
@@ -880,8 +600,6 @@ export default function GraffitiMode({
             </MuralText>
           </View>
         </CameraView>
-        
-        <ConfirmationComponent />
       </View>
     </ErrorBoundary>
   );
@@ -965,12 +683,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   exitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     minHeight: 44, // Accessibility: minimum touch target
     justifyContent: 'center',
+  },
+  exitButtonText: {
+    marginLeft: 8,
+    color: 'white',
   },
   topRightControls: {
     flexDirection: 'row',

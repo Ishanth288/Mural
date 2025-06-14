@@ -4,6 +4,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const ShaderBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number>();
+  const glRef = useRef<WebGLRenderingContext | null>(null);
   
   useEffect(() => {
     if (Platform.OS !== 'web' || !canvasRef.current) {
@@ -11,12 +13,14 @@ const ShaderBackground = () => {
     }
     
     const canvas = canvasRef.current;
-    const gl = canvas.getContext('webgl');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     
     if (!gl) {
       console.warn('WebGL not supported, falling back to CSS gradient');
       return;
     }
+    
+    glRef.current = gl;
     
     // Vertex shader source
     const vsSource = `
@@ -26,9 +30,9 @@ const ShaderBackground = () => {
       }
     `;
     
-    // Fragment shader source
+    // Fragment shader source with optimized performance
     const fsSource = `
-      precision highp float;
+      precision mediump float;
       uniform vec2 iResolution;
       uniform float iTime;
 
@@ -185,9 +189,16 @@ const ShaderBackground = () => {
       };
 
       const resizeCanvas = () => {
-        if (typeof window !== 'undefined') {
-          canvas.width = window.innerWidth;
-          canvas.height = window.innerHeight;
+        if (typeof window !== 'undefined' && canvas) {
+          const dpr = window.devicePixelRatio || 1;
+          const rect = canvas.getBoundingClientRect();
+          
+          canvas.width = rect.width * dpr;
+          canvas.height = rect.height * dpr;
+          
+          canvas.style.width = rect.width + 'px';
+          canvas.style.height = rect.height + 'px';
+          
           gl.viewport(0, 0, canvas.width, canvas.height);
         }
       };
@@ -198,9 +209,10 @@ const ShaderBackground = () => {
       }
 
       let startTime = Date.now();
-      let animationId: number;
       
       const render = () => {
+        if (!glRef.current) return;
+        
         const currentTime = (Date.now() - startTime) / 1000;
 
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -223,16 +235,19 @@ const ShaderBackground = () => {
         gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        animationId = requestAnimationFrame(render);
+        animationRef.current = requestAnimationFrame(render);
       };
 
-      animationId = requestAnimationFrame(render);
+      animationRef.current = requestAnimationFrame(render);
 
       return () => {
         if (typeof window !== 'undefined') {
           window.removeEventListener('resize', resizeCanvas);
         }
-        cancelAnimationFrame(animationId);
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
+        glRef.current = null;
       };
     } catch (error) {
       console.warn('WebGL shader failed, using fallback:', error);
@@ -249,7 +264,7 @@ const ShaderBackground = () => {
         {/* Fallback gradient */}
         <LinearGradient
           colors={['#1a1a2e', '#16213e', '#0f3460']}
-          style={[styles.fallback, { opacity: canvasRef.current ? 0 : 1 }]}
+          style={[styles.fallback, { opacity: glRef.current ? 0 : 1 }]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         />
