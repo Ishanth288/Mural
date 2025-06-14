@@ -1,6 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react-native';
+import { TriangleAlert as AlertTriangle, RefreshCw, Chrome as Home } from 'lucide-react-native';
 import { router } from 'expo-router';
 import MuralText from './MuralText';
 import MuralButton from './MuralButton';
