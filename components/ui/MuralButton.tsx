@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  TouchableOpacity, 
+  Pressable, 
   Text, 
   StyleSheet, 
   ViewStyle, 
@@ -32,7 +32,7 @@ type MuralButtonProps = {
   accessibilityHint?: string;
 };
 
-const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export default function MuralButton({ 
   title, 
@@ -148,11 +148,10 @@ export default function MuralButton({
       role="button"
       state={{ disabled: disabled || loading }}
     >
-      <AnimatedTouchable
+      <AnimatedPressable
         onPress={handlePress}
         style={[buttonStyle, style]}
         disabled={disabled || loading}
-        activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel || title}
         accessibilityHint={accessibilityHint}
@@ -186,7 +185,7 @@ export default function MuralButton({
           {/* Mural brand accent */}
           <View style={[styles.brandAccent, { backgroundColor: colors.accent }]} />
         </View>
-      </AnimatedTouchable>
+      </AnimatedPressable>
     </AccessibilityWrapper>
   );
 }
